@@ -1,0 +1,62 @@
+# This workflow will build a Swift project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+
+name: Swift
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  macos:
+    name: Test on macOS
+    runs-on: macos-latest
+    steps:
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    - uses: actions/checkout@v4
+    - name: Build
+      run: swift build -v
+    # The integration suite is skipped unless YACI_BASE_URL is set, so this runs
+    # only the hermetic tests — no Yaci Store instance needed.
+    - name: Build and test
+      run: swift test -v --parallel
+
+  docs:
+    name: Build documentation
+    runs-on: macos-latest
+    steps:
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    - uses: actions/checkout@v4
+    # Swift Package Index builds this catalog from .spi.yml. Building it here
+    # catches broken symbol and article links before they are published.
+    - name: Build DocC catalog
+      run: |
+        xcodebuild docbuild \
+          -scheme SwiftYaciAPI \
+          -destination 'generic/platform=macOS' \
+          -derivedDataPath .docbuild \
+          -skipPackagePluginValidation
+    # `OTHER_DOCC_FLAGS=--warnings-as-errors` would also apply to dependency
+    # targets, which have documentation warnings of their own, so check this
+    # package's diagnostics instead.
+    - name: Fail on documentation warnings
+      run: |
+        diagnostics=$(find .docbuild -name 'SwiftYaciAPI-diagnostics.json' | head -1)
+        if [ -z "$diagnostics" ]; then
+          echo "No diagnostics file produced — did the catalog build?" >&2
+          exit 1
+        fi
+        count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d if isinstance(d, list) else d.get('diagnostics', [])))" "$diagnostics")
+        if [ "$count" != "0" ]; then
+          echo "DocC reported $count diagnostic(s):" >&2
+          cat "$diagnostics" >&2
+          exit 1
+        fi
+        echo "DocC catalog built with no diagnostics."
