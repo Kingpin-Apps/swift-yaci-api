@@ -18,7 +18,7 @@ jobs:
     - uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Build
       run: swift build -v
     # The integration suite is skipped unless YACI_BASE_URL is set, so this runs
@@ -33,7 +33,7 @@ jobs:
     - uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     # Swift Package Index builds this catalog from .spi.yml. Building it here
     # catches broken symbol and article links before they are published.
     - name: Build DocC catalog
